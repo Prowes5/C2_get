@@ -37,5 +37,6 @@ loaddll.exe install FileHistory.exe
   - 提取cs x64样本的C2
 - 2021.12.27 v0.2版本更新，可以对msf生成的马进行host提取
   - 提取msf x86版本的C2
+  - loaddll名称更新为dll_inject
 - 
 - 
