@@ -1,0 +1,9 @@
+﻿  dll_inject.cpp
+C:\Users\12877\source\repos\dll_inject\dll_inject\dll_inject.cpp(66,20): warning C4267: “=”: 从“size_t”转换到“int”，可能丢失数据
+C:\Users\12877\source\repos\dll_inject\dll_inject\dll_inject.cpp(23,10): warning C4101: “hMod”: 未引用的局部变量
+  正在生成代码
+  1 of 5 functions (20.0%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+  dll_inject.vcxproj -> C:\Users\12877\source\repos\dll_inject\x64\Release\dll_inject.exe
