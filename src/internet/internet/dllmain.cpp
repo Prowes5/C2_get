@@ -43,6 +43,7 @@ int WSAAPI new_WSAConnect(
 );
 
 void InstallHook(DWORD64 old_func, DWORD64 new_func);
+void InstallHook_Connect(DWORD64 old_func, DWORD64 new_func);
 void UnstallHook();
 
 BOOL APIENTRY DllMain(HMODULE hModule,
@@ -75,7 +76,7 @@ BOOL APIENTRY DllMain(HMODULE hModule,
         pconnect = (FUNADDR)GetProcAddress(hMod, "connect");
 
         InstallHook((DWORD64)pInternetConnectA, (DWORD64)new_internetconnectA);
-        InstallHook((DWORD64)pconnect+3, (DWORD64)new_WSAConnect);
+        InstallHook_Connect((DWORD64)pconnect, (DWORD64)new_WSAConnect);
 
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
@@ -101,14 +102,17 @@ HINTERNET new_internetconnectA(
     FUNADDR2 pInternetConnectA = (FUNADDR2)GetProcAddress(hMod, "InternetConnectA");
     HINTERNET hCon;
     char host[29];
-    hCon = ((FUNADDR2)((DWORD64)pInternetConnectA - 17))(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
-    //HINTERNET hCon = InternetConnectA(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
+
     sprintf(host, "host: %s:%d\n", lpszServerName, nServerPort);
     printf("host: %s:%d\n", lpszServerName, nServerPort);
     //MessageBox(NULL, T2W((LPTSTR)lpszServerName), TEXT("host"), MB_OK);
     fopen_s(&fp, "host.txt", "a");
     fprintf(fp, host);
     fclose(fp);
+
+    hCon = ((FUNADDR2)((DWORD64)pInternetConnectA - 17))(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
+    //HINTERNET hCon = InternetConnectA(hInternet, lpszServerName, nServerPort, lpszUserName, lpszPassword, dwService, dwFlags, dwContext);
+    
     return hCon;
 }
 
@@ -170,7 +174,6 @@ int WSAAPI new_WSAConnect(
     HMODULE hMod = LoadLibraryA("ws2_32.dll");
     FUNADDR pconnect = (FUNADDR)GetProcAddress(hMod, "connect");
 
-    ret = ((FUNADDR)((DWORD64)pconnect - 17))(s, name, namelen);
     new_sock = (struct sockaddr_in*)name;
 
     port = ntohs(new_sock->sin_port);
@@ -179,5 +182,48 @@ int WSAAPI new_WSAConnect(
     fopen_s(&fp, "host.txt", "a");
     fprintf(fp, host);
     fclose(fp);
+
+    ret = ((FUNADDR)((DWORD64)pconnect - 13))(s, name, namelen);
+    
     return ret;
+}
+
+void InstallHook_Connect(DWORD64 old_func, DWORD64 new_func) {
+    DWORD OldProtect = 0;
+
+    MessageBox(NULL, TEXT("hook"), TEXT("Install"), MB_OK);
+    if (VirtualProtect((LPVOID)(old_func - 13), 25, PAGE_EXECUTE_READWRITE, &OldProtect) == NULL) {
+        printf("change protect fail\n");
+        return;
+    }
+
+    /*
+    InternetConnectA函数指令填充
+
+    ///函数原来的指令
+    mov qword ptr ss:[rsp+8], rbx
+    mov qword ptr ss:[rsp+10], rbp
+    mov qword ptr ss:[rsp+18], rsi
+
+    ///此处InternetConnectA+4代表跳转到InternetConnectA函数的第四条指令处
+    jmp InternetConnectA+4
+
+
+    ///跳转到new_func
+    mov rax, new_func
+    jmp rax
+    */
+    //* (DWORD64*)(old_func - 17) = 0x6c894808245c8948;
+    * (DWORD64*)(old_func - 13) = 0x0a08588948c48b48;
+    *(DWORD64*)(old_func - 13) = 0x4808588948c48b48;
+    *(WORD*)(old_func - 5) = 0x6889;
+    *(WORD*)(old_func - 3) = 0xeb10;
+    *(BYTE*)(old_func - 1) = 0x0c;
+    *(WORD*)old_func = 0xb848;
+    *(DWORD64*)(old_func + 2) = new_func;
+    *(WORD*)(old_func + 10) = 0xe0ff;
+    if (VirtualProtect((LPVOID)(old_func - 13), 25, PAGE_EXECUTE_READ, &OldProtect) == NULL) {
+        printf("change protect fail\n");
+        return;
+    }
 }
